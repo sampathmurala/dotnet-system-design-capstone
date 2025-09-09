@@ -1,0 +1,32 @@
+## .gitignore
+# nuget packages
+*.nupkg
+*.snupkg
+
+# build outputs
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.bak
+*.vspscc
+*.vssscc
+
+# Rider IDE files
+.idea/
+
+# Local data stores
+*.sqlite3
+*.db
+
+# Node.js and npm
+node_modules/
+npm-debug.log
+
+# General
+**/*.tmp
