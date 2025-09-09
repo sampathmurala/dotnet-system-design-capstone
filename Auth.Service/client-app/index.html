@@ -1,0 +1,168 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Client App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #334155;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .container {
+            background-color: white;
+            padding: 2.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="container mx-auto p-6 bg-white rounded-lg shadow-xl max-w-2xl">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Food Delivery Client App</h1>
+
+        <div id="login-section" class="section">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Login</h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-gray-600 font-medium mb-1">Username</label>
+                    <input type="text" id="username" value="testuser" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-gray-600 font-medium mb-1">Password</label>
+                    <input type="password" id="password" value="testpass" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">
+                    Log In
+                </button>
+            </form>
+            <div id="status-message" class="mt-4 text-center font-medium"></div>
+        </div>
+
+        <div id="api-section" class="section hidden">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">API Calls</h2>
+            <div class="space-y-4">
+                <button id="call-public-api" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700 transition-colors">
+                    Call Public API
+                </button>
+                <div id="public-api-response" class="bg-gray-200 p-3 rounded-md text-sm font-mono whitespace-pre-wrap">Public API Response:</div>
+
+                <button id="call-protected-api" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-colors">
+                    Call Protected API
+                </button>
+                <div id="protected-api-response" class="bg-gray-200 p-3 rounded-md text-sm font-mono whitespace-pre-wrap">Protected API Response:</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const keycloakConfig = {
+            authority: "http://localhost:8080/realms/FoodDelivery",
+            clientId: "food-delivery-app",
+            clientSecret: "ze5EbKhq5vdIXy3SUiLA0pSA1QQE9N6L"
+        };
+        const apiConfig = {
+            baseUrl: "http://localhost:5000/WeatherForecast"
+        };
+
+        const loginForm = document.getElementById('login-form');
+        const statusMessage = document.getElementById('status-message');
+        const apiSection = document.getElementById('api-section');
+        const callPublicApiBtn = document.getElementById('call-public-api');
+        const callProtectedApiBtn = document.getElementById('call-protected-api');
+        const publicApiResponseDiv = document.getElementById('public-api-response');
+        const protectedApiResponseDiv = document.getElementById('protected-api-response');
+
+        let accessToken = null;
+
+        // Login Function
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = e.target.username.value;
+            const password = e.target.password.value;
+
+            statusMessage.textContent = 'Logging in...';
+
+            try {
+                const response = await fetch(`${keycloakConfig.authority}/protocol/openid-connect/token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'grant_type': 'password',
+                        'username': username,
+                        'password': password,
+                        'client_id': keycloakConfig.clientId,
+                        'client_secret': keycloakConfig.clientSecret
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    accessToken = data.access_token;
+                    statusMessage.textContent = 'Login successful!';
+                    apiSection.classList.remove('hidden');
+                } else {
+                    const errorData = await response.json();
+                    statusMessage.textContent = `Login failed: ${errorData.error_description || response.statusText}`;
+                }
+            } catch (error) {
+                statusMessage.textContent = `An error occurred: ${error.message}`;
+            }
+        });
+
+        // Call Public API
+        callPublicApiBtn.addEventListener('click', async () => {
+            publicApiResponseDiv.textContent = 'Calling API...';
+            try {
+                const response = await fetch(`${apiConfig.baseUrl}/public`);
+                const data = await response.text();
+                publicApiResponseDiv.textContent = `Public API Response: ${data}`;
+            } catch (error) {
+                publicApiResponseDiv.textContent = `Error: ${error.message}`;
+            }
+        });
+
+        // Call Protected API
+        callProtectedApiBtn.addEventListener('click', async () => {
+            protectedApiResponseDiv.textContent = 'Calling API...';
+            if (!accessToken) {
+                protectedApiResponseDiv.textContent = 'Error: Not logged in. Please log in first.';
+                return;
+            }
+
+            try {
+                const response = await fetch(apiConfig.baseUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    protectedApiResponseDiv.textContent = `Protected API Response: \n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    protectedApiResponseDiv.textContent = `API call failed: ${response.status} ${response.statusText}`;
+                }
+            } catch (error) {
+                protectedApiResponseDiv.textContent = `An error occurred: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
